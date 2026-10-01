@@ -1,0 +1,19 @@
+{
+  "name": "linkedin-autoposter",
+  "version": "1.0.0",
+  "description": "Give it a topic. Claude drafts a LinkedIn post, you approve it, and it publishes on your schedule.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env src/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "express": "^5.3.0",
+    "unpdf": "^2.1.0"
+  }
+}
