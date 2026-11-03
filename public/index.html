@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LinkedIn Autoposter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Autoposter</h1>
+      <div id="connection" class="connection"></div>
+    </header>
+
+    <section id="auth" class="card auth" hidden></section>
+
+    <div id="app" hidden>
+
+    <div id="banners"></div>
+
+    <section id="drafts-section" hidden>
+      <h2>Needs your review</h2>
+      <p class="section-help">Read each draft and edit it if you like. Approve it to post at the time shown.</p>
+      <div id="drafts" class="list"></div>
+    </section>
+
+    <section id="scheduled-section" hidden>
+      <h2>Scheduled</h2>
+      <p class="section-help">These go out on LinkedIn by themselves at the time shown.</p>
+      <div id="scheduled" class="list"></div>
+    </section>
+
+    <section class="card composer">
+      <form id="composer">
+        <label for="topic">What should your next post be about?</label>
+        <input id="topic" autocomplete="off" required maxlength="500"
+          placeholder="e.g. Why small teams should write things down">
+        <details>
+          <summary>Add details</summary>
+          <textarea id="notes" rows="3" maxlength="4000"
+            placeholder="Your own story, facts, or opinions to include. The AI won't invent these for you."></textarea>
+        </details>
+        <div class="actions">
+          <button id="write" class="primary" type="submit">Write draft</button>
+          <button id="draft-next" type="button" hidden>Write one from my topics</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="history-section" hidden>
+      <h2>Posted</h2>
+      <div id="history" class="list"></div>
+    </section>
+
+    <section>
+      <details class="card settings" id="schedule-card">
+        <summary><span class="summary-title">When to post</span> <span id="schedule-summary" class="summary-detail"></span></summary>
+        <form id="schedule">
+          <fieldset>
+            <legend>Days</legend>
+            <div id="days" class="days"></div>
+          </fieldset>
+          <label class="short">Time <input id="time" type="time" required></label>
+          <fieldset class="modes">
+            <legend>Every posting day</legend>
+            <label class="check"><input type="radio" name="mode" value="auto">
+              <span><b>Write and post automatically.</b> A draft is written an hour before the posting time and goes out by itself. You can still edit or stop it in that hour.</span></label>
+            <label class="check"><input type="radio" name="mode" value="review">
+              <span><b>Write a draft and wait for me.</b> Nothing is posted until you approve it.</span></label>
+            <label class="check"><input type="radio" name="mode" value="off">
+              <span><b>Don't write anything.</b> I'll write my own topics.</span></label>
+          </fieldset>
+          <button type="submit" class="primary">Save</button>
+          <p id="spending" class="note"></p>
+        </form>
+      </details>
+    </section>
+
+    <section>
+      <details class="card settings">
+        <summary><span class="summary-title">Topics and writing style</span> <span class="summary-detail">optional</span></summary>
+        <form id="style">
+          <div>
+            <p class="field-title">Topics the AI takes turns writing about</p>
+            <div id="pillars" class="pillars"></div>
+            <button id="add-pillar" type="button">Add a topic</button>
+          </div>
+          <label>What are you learning right now?
+            <textarea id="learning" rows="3"
+              placeholder="e.g. Building evaluation suites for LLM agents, and what's surprised me so far."></textarea>
+          </label>
+          <label>About you and your writing style
+            <textarea id="voice" rows="4"
+              placeholder="What you do, who you're writing for, and how you sound. You can paste a past post as an example."></textarea>
+          </label>
+          <label class="short">Time zone <input id="timezone" required></label>
+          <label class="check">
+            <input id="autoApprove" type="checkbox">
+            <span>When I type my own topic, schedule the draft without asking me.</span>
+          </label>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+    </section>
+
+    <section>
+      <details class="card settings" id="profile-card">
+        <summary><span class="summary-title">Profile check</span> <span id="profile-summary" class="summary-detail"></span></summary>
+        <div id="profile"></div>
+      </details>
+    </section>
+
+    <section id="people-section" hidden>
+      <details class="card settings">
+        <summary><span class="summary-title">People</span> <span class="summary-detail">invite family and friends</span></summary>
+        <p class="note">Each person signs in with their own username and password and only sees their own LinkedIn accounts. Send an invite link to add someone. Links work once and expire after 7 days.</p>
+        <div id="people" class="people"></div>
+        <button id="invite" type="button" class="primary">Create invite link</button>
+        <div id="invite-result"></div>
+      </details>
+    </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
