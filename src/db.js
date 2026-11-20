@@ -29,6 +29,8 @@ function hydrate(row) {
     settings: { ...DEFAULT_SETTINGS, ...JSON.parse(row.settings) },
     analysis: row.analysis ? JSON.parse(row.analysis) : null,
     dailyDate: row.daily_date,
+    dailyTries: row.daily_tries,
+    dailyRetryAt: row.daily_retry_at,
     dailyIndex: row.daily_index,
     dailyError: row.daily_error,
   };
@@ -48,6 +50,12 @@ function migrate(db) {
 
   const accountColumns = db.prepare("PRAGMA table_info(accounts)").all().map((c) => c.name);
   if (!accountColumns.includes("user_id")) db.exec("ALTER TABLE accounts ADD COLUMN user_id INTEGER");
+  if (!accountColumns.includes("daily_tries")) {
+    db.exec(`
+      ALTER TABLE accounts ADD COLUMN daily_tries INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE accounts ADD COLUMN daily_retry_at TEXT;
+    `);
+  }
 
   const { count } = db.prepare("SELECT COUNT(*) AS count FROM accounts").get();
   if (count > 0) return;
@@ -263,8 +271,15 @@ export function openStore(dataDir) {
       db.prepare("UPDATE accounts SET analysis = ? WHERE id = ?").run(JSON.stringify(analysis), id),
     rename: (id, name) => db.prepare("UPDATE accounts SET name = ? WHERE id = ?").run(name, id),
 
+    /** Records an attempt at today's draft, counting the tries made on the same day. */
     markDailyRun: (id, date) =>
-      db.prepare("UPDATE accounts SET daily_date = ?, daily_error = NULL WHERE id = ?").run(date, id),
+      db
+        .prepare(
+          `UPDATE accounts SET daily_tries = CASE WHEN daily_date = ? THEN daily_tries + 1 ELSE 1 END,
+             daily_date = ?, daily_error = NULL, daily_retry_at = NULL WHERE id = ?`,
+        )
+        .run(date, date, id),
+    retryDailyAt: (id, at) => db.prepare("UPDATE accounts SET daily_retry_at = ? WHERE id = ?").run(at, id),
     setDailyError: (id, error) => db.prepare("UPDATE accounts SET daily_error = ? WHERE id = ?").run(error, id),
     advancePillar: (id) => db.prepare("UPDATE accounts SET daily_index = daily_index + 1 WHERE id = ?").run(id),
     /** Daily posts still waiting: drafts for review, and ones scheduled but not yet published. */

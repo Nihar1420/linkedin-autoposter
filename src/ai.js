@@ -8,6 +8,13 @@ const MAX_RETRIES = 5; // Rides out brief outages. The SDK waits longer between 
 // Models that accept the server-side fallback option used below.
 const FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]);
 
+/** Failures worth trying again later: the connection dropped, Claude was busy or down. */
+function isRetryable(err) {
+  if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.RateLimitError) return true;
+  if (err instanceof Anthropic.APIError) return err.status >= 500;
+  return /terminated|fetch failed|socket|ECONNRESET|ETIMEDOUT|network/i.test(err.message ?? "");
+}
+
 function friendlyError(err) {
   if (err instanceof Anthropic.AuthenticationError) {
     return "Claude rejected the API key. Check ANTHROPIC_API_KEY in your settings.";
@@ -22,6 +29,7 @@ function friendlyError(err) {
   }
   if (err instanceof Anthropic.APIError) return `Claude returned an error (${err.status}): ${err.message}`;
   if (/api.?key|authentication method/i.test(err.message)) return "ANTHROPIC_API_KEY isn't set yet.";
+  if (isRetryable(err)) return "The connection to Claude dropped, usually because the computer went to sleep.";
   return err.message;
 }
 
@@ -72,7 +80,9 @@ export function createAi({ model, maxRetries = MAX_RETRIES, baseUrl = CLAUDE_API
     try {
       response = await client.beta.messages.create(full);
     } catch (err) {
-      throw new Error(friendlyError(err));
+      const friendly = new Error(friendlyError(err));
+      friendly.retryable = isRetryable(err);
+      throw friendly;
     }
     budget?.record(response.usage, model);
     return response;

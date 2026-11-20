@@ -2,6 +2,10 @@ import { MAX_POST_LENGTH } from "./prompts.js";
 import { nextSlot } from "./schedule.js";
 
 export const MAX_WAITING_DRAFTS = 3;
+// A draft that failed because the connection dropped, for example when the Mac
+// went to sleep mid-request, is tried again a little later, a few times a day.
+export const MAX_DAILY_TRIES = 3;
+export const RETRY_AFTER_MINUTES = 10;
 
 /** The date and time right now on the wall clock in `timeZone`. */
 export function localNow(timeZone, now = new Date()) {
@@ -54,8 +58,9 @@ export async function draftNextPost({ store, ai }, accountId, origin = "daily") 
 
 /**
  * Writes today's draft for each account that's due. Each account is marked as
- * done before the work starts, so a failure can't cause repeated paid retries;
- * the error is shown in the app instead. Drafts wait for your approval unless
+ * done before the work starts, so a failure can't cause endless paid retries. A
+ * dropped connection or an outage is tried again after a few minutes, up to
+ * three tries a day; any other error is shown in the app instead. Drafts wait for your approval unless
  * "Post daily drafts automatically" is on, in which case each one is scheduled
  * for the next posting time.
  */
@@ -66,7 +71,11 @@ export async function runDailyDrafts(deps, now = new Date()) {
     if (!settings.dailyDrafts || !analysis || !settings.timezone) continue;
 
     const { date, time } = localNow(settings.timezone, now);
-    if (time < settings.draftTime || account.dailyDate === date) continue;
+    if (time < settings.draftTime) continue;
+    if (account.dailyDate === date) {
+      const retryDue = account.dailyRetryAt && Date.parse(account.dailyRetryAt) <= now.getTime();
+      if (!retryDue) continue;
+    }
 
     store.markDailyRun(account.id, date);
     if (store.waitingDailyDrafts(account.id) >= MAX_WAITING_DRAFTS) continue;
@@ -75,8 +84,14 @@ export async function runDailyDrafts(deps, now = new Date()) {
       const id = await draftNextPost(deps, account.id);
       if (settings.autoPostDaily) autoSchedule(store, account.id, id, now);
     } catch (err) {
-      store.setDailyError(account.id, `Today's draft couldn't be written: ${err.message}`);
-      console.error(`Daily draft failed for ${account.name}: ${err.message}`);
+      const tries = store.getAccount(account.id).dailyTries;
+      if (err.retryable && tries < MAX_DAILY_TRIES) {
+        store.retryDailyAt(account.id, new Date(now.getTime() + RETRY_AFTER_MINUTES * 60000).toISOString());
+        store.setDailyError(account.id, `Today's draft couldn't be written yet: ${err.message} Trying again in ${RETRY_AFTER_MINUTES} minutes.`);
+      } else {
+        store.setDailyError(account.id, `Today's draft couldn't be written: ${err.message}`);
+      }
+      console.error(`Daily draft failed for ${account.name} (try ${tries}): ${err.message}`);
     }
   }
 }

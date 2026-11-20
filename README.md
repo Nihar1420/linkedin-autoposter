@@ -117,7 +117,7 @@ Your topic ─┐                             ▼
 - **Grok support:** the Grok key provided earlier was rejected, so real Grok calls
   are untested.
 
-There are 67 automated tests; run them with `npm test`.
+There are 70 automated tests; run them with `npm test`.
 
 ### Current setup on this Mac
 
@@ -221,7 +221,9 @@ the draft time an hour or two earlier if you'd like a chance to read it first.
 A researched post with nothing to cite is still posted. The writing instructions
 make it a general post in that case, with no claims about recent releases, dates
 or numbers. New accounts start with automatic posting on weekdays at 11:00.
-If three daily posts are waiting, as drafts or scheduled, the app stops writing
+If writing a draft fails because the connection dropped, for example because the
+Mac went to sleep mid-request, the app tries again 10 minutes later, up to three
+tries a day. If three daily posts are waiting, as drafts or scheduled, the app stops writing
 more until some are dealt with, so you aren't paying for posts that pile up.
 
 ### Connect LinkedIn

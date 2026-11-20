@@ -7,7 +7,9 @@ let reply;
 let baseUrl;
 let failWith = null;
 let lastRequest = null;
+let dropConnection = false;
 const server = createServer((req, res) => {
+  if (dropConnection) return req.socket.destroy();
   let raw = "";
   req.on("data", (chunk) => (raw += chunk));
   req.on("end", () => {
@@ -123,4 +125,19 @@ test("each reply's cost is recorded, and nothing is sent once the budget is used
   lastRequest = null;
   await assert.rejects(ai.write({ topic: "T" }), /budget is used up/);
   assert.equal(lastRequest, null, "Claude wasn't called");
+});
+
+test("a dropped connection gives a plain message and is marked to try again", async () => {
+  dropConnection = true;
+  try {
+    const err = await createAi({ model: "claude-sonnet-5-5", maxRetries: 0, baseUrl }).write({ topic: "T" }).catch((e) => e);
+    assert.equal(err.retryable, true);
+    assert.match(err.message, /couldn't reach claude|connection to claude dropped/i);
+  } finally {
+    dropConnection = false;
+  }
+  failWith = 400;
+  const bad = await createAi({ model: "claude-sonnet-5-5", maxRetries: 0, baseUrl }).write({ topic: "T" }).catch((e) => e);
+  failWith = null;
+  assert.equal(bad.retryable, false, "a bad request isn't retried");
 });

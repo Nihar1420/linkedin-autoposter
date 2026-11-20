@@ -489,6 +489,44 @@ test("a failed daily draft shows its error and isn't retried until tomorrow", as
   assert.equal(store.getAccount(1).dailyError, null);
 });
 
+test("a dropped connection is tried again 10 minutes later, up to three times a day", async () => {
+  await setUpDaily();
+  let tries = 0;
+  const dropped = () => Object.assign(new Error("The connection to Claude dropped."), { retryable: true });
+  const deps = { store, ai: { write: async () => { tries++; throw dropped(); } } };
+
+  await runDailyDrafts(deps, at("2026-11-06T09:00:00Z"));
+  await runDailyDrafts(deps, at("2026-11-06T09:05:00Z"));
+  assert.equal(tries, 1, "not before the 10 minutes are up");
+  assert.match(store.getAccount(1).dailyError, /Trying again in 10 minutes/);
+
+  await runDailyDrafts(deps, at("2026-11-06T09:10:00Z"));
+  await runDailyDrafts(deps, at("2026-11-06T09:20:00Z"));
+  await runDailyDrafts(deps, at("2026-11-06T09:30:00Z"));
+  await runDailyDrafts(deps, at("2026-11-06T09:40:00Z"));
+  assert.equal(tries, 3, "three tries, then it stops for the day");
+  assert.doesNotMatch(store.getAccount(1).dailyError, /Trying again/);
+
+  const good = { store, ai: { write: async () => ({ text: "x", sources: [] }) } };
+  await runDailyDrafts(good, at("2026-11-07T09:00:00Z"));
+  assert.equal(store.listPosts(1).length, 1, "the next day starts fresh");
+});
+
+test("a retry that works posts as normal", async () => {
+  await setUpDaily({ autoPostDaily: true, days: [5, 6], time: "11:00" });
+  let tries = 0;
+  const sources = [{ url: "https://example.com", title: "Example" }];
+  const deps = { store, ai: { write: async () => {
+    if (++tries === 1) throw Object.assign(new Error("dropped"), { retryable: true });
+    return { text: "x", sources };
+  } } };
+  await runDailyDrafts(deps, at("2026-11-06T09:00:00Z"));
+  await runDailyDrafts(deps, at("2026-11-06T09:10:00Z"));
+  const [post] = store.listPosts(1);
+  assert.equal(post.status, "scheduled");
+  assert.equal(store.getAccount(1).dailyError, null);
+});
+
 test("sources are kept on the draft and replaced on rewrite", async () => {
   await setUpDaily();
   const url = "https://example.com/a";
